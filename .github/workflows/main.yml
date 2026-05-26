@@ -25,5 +25,5 @@ jobs:
           -framework UIKit \
           -lobjc \
           -o MamoBall_Ultimate.dylib \
-          src/MamoBall_Ultimate.m
+          MamoBall_Ultimate.m
         ls
