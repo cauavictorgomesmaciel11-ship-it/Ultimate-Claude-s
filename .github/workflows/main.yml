@@ -1,0 +1,29 @@
+name: Build MamoBall Dylib
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Build dylib
+      run: |
+        clang \
+          -arch arm64 \
+          -shared \
+          -fobjc-arc \
+          -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+          -miphoneos-version-min=15.0 \
+          -framework Foundation \
+          -framework UIKit \
+          -lobjc \
+          -o MamoBall_Ultimate.dylib \
+          src/MamoBall_Ultimate.m
+        ls
