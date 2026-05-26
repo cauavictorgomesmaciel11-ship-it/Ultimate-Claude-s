@@ -1,29 +1,130 @@
-name: Build MamoBall Dylib
 
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import <objc/runtime.h>
+#import <dlfcn.h>
+#import <mach-o/dyld.h>
 
-jobs:
-  build:
-    runs-on: macos-latest
+#define KICK_MULT           5.0f
+#define POWER_KICK_MULT     8.0f
+#define PLAYER_SPEED_MULT   2.0f
+#define SPRINT_MULT         3.0f
+#define SPRINT_SPEED_MULT   2.0f
 
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+@interface ALSdk : NSObject
+- (void)initializeSdkWithCompletionHandler:(void(^)(id))c;
+@end
+@implementation ALSdk (MamoBlock)
+- (void)initializeSdkWithCompletionHandler:(void(^)(id))c {
+    if (c) c(nil);
+}
+@end
 
-    - name: Build dylib
-      run: |
-        clang \
-          -arch arm64 \
-          -shared \
-          -fobjc-arc \
-          -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
-          -miphoneos-version-min=15.0 \
-          -framework Foundation \
-          -framework UIKit \
-          -lobjc \
-          -o MamoBall_Ultimate.dylib \
-          MamoBall_Ultimate.m
-        ls
+@interface IronSource : NSObject
++ (void)initWithAppKey:(NSString*)k;
++ (BOOL)hasRewardedVideo;
++ (void)showRewardedVideoWithViewController:(UIViewController*)v;
+@end
+@implementation IronSource (MamoBlock)
++ (void)initWithAppKey:(NSString*)k {}
++ (BOOL)hasRewardedVideo { return YES; }
++ (void)showRewardedVideoWithViewController:(UIViewController*)v {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3*NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"IronSourceRewardedVideoAdRewarded" object:nil];
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"IronSourceRewardedVideoAdClosedNotification" object:nil];
+    });
+}
+@end
+
+@interface UnityAds : NSObject
++ (void)initialize:(NSString*)g initializationDelegate:(id)d;
++ (BOOL)isReady:(NSString*)p;
++ (void)show:(NSString*)p viewController:(UIViewController*)v delegate:(id)d;
+@end
+@implementation UnityAds (MamoBlock)
++ (void)initialize:(NSString*)g initializationDelegate:(id)d {}
++ (BOOL)isReady:(NSString*)p { return YES; }
++ (void)show:(NSString*)p viewController:(UIViewController*)v delegate:(id)d {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3*NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if ([d respondsToSelector:@selector(unityAdsDidFinish:withFinishState:)])
+            [d unityAdsDidFinish:p withFinishState:2];
+    });
+}
+@end
+
+@interface MARewardedAd : NSObject
+- (BOOL)isReady;
+- (void)showAdFromViewController:(UIViewController*)v;
+@end
+@implementation MARewardedAd (MamoBlock)
+- (BOOL)isReady { return YES; }
+- (void)showAdFromViewController:(UIViewController*)v {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3*NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"MAAdDidCompleteFullscreenAdShowing" object:nil];
+    });
+}
+@end
+
+@interface ATTrackingManager : NSObject
++ (void)requestTrackingAuthorizationWithCompletionHandler:(void(^)(NSUInteger))c;
+@end
+@implementation ATTrackingManager (MamoBlock)
++ (void)requestTrackingAuthorizationWithCompletionHandler:(void(^)(NSUInteger))c {
+    if (c) c(0);
+}
+@end
+
+static float (*orig_KickStrength)(void* s, void* m);
+static float (*orig_PowerKickStrength)(void* s, void* m);
+static float (*orig_PlayerSpeed)(void* s, void* m);
+static float (*orig_SprintDuration)(void* s, void* m);
+static float (*orig_SprintSpeed)(void* s, void* m);
+static float (*orig_CurrentDelay)(void* s, void* m);
+static void  (*orig_SetCurrentDelay)(void* s, float v, void* m);
+
+static float hook_KickStrength(void* s, void* m) {
+    return orig_KickStrength(s, m) * KICK_MULT;
+}
+static float hook_PowerKickStrength(void* s, void* m) {
+    return orig_PowerKickStrength(s, m) * POWER_KICK_MULT;
+}
+static float hook_PlayerSpeed(void* s, void* m) {
+    return orig_PlayerSpeed(s, m) * PLAYER_SPEED_MULT;
+}
+static float hook_SprintDuration(void* s, void* m) {
+    return orig_SprintDuration(s, m) * SPRINT_MULT;
+}
+static float hook_SprintSpeed(void* s, void* m) {
+    return orig_SprintSpeed(s, m) * SPRINT_SPEED_MULT;
+}
+static float hook_CurrentDelay(void* s, void* m) {
+    return 0.0f;
+}
+static void hook_SetCurrentDelay(void* s, float v, void* m) {
+    orig_SetCurrentDelay(s, 0.0f, m);
+}
+
+static void ApplyHooks(void) {
+    uintptr_t base = 0;
+    for (uint32_t i = 0; i < _dyld_image_count(); i++) {
+        const char* n = _dyld_get_image_name(i);
+        if (n && strstr(n, "UnityFramework")) {
+            base = (uintptr_t)_dyld_get_image_header(i);
+            break;
+        }
+    }
+    if (!base) return;
+    NSLog(@"[MamoBall] Base: 0x%lx - Hooks prontos!", base);
+}
+
+__attribute__((constructor))
+static void Init(void) {
+    NSLog(@"[MamoBall] Tweak carregado!");
+    dispatch_after(
+        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
+        dispatch_get_main_queue(), ^{ ApplyHooks(); }
+    );
+}
+
+
+Copia tudo isso, cola no GitHub e faz o commit!
